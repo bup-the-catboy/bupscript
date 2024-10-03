@@ -2,12 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define ERROR(code, text) text,
 const char* error_strings[] = {
-    "No error",
-    "Invalid character",
-    "Unexpected End of Line",
-    "Unexpected End of File",
+#include "errors.h"
 };
+#undef ERROR
 
 struct Error {
     int code;
