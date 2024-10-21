@@ -6,7 +6,7 @@
 #include <math.h>
 
 struct Token* append_token(struct Token* head, enum TokenType type, union TokenValue value, int row, int col) {
-    struct Token* next = memset(malloc(sizeof(struct Token)), 0, sizeof(struct Token));
+    struct Token* next = calloc(sizeof(struct Token), 1);
     next->prev  = head;
     head->next  = next;
     head->type  = type;
@@ -66,7 +66,7 @@ int parse_symbol_token(const char* script, struct Token* head, int row, int col)
     if (token == Token_None) return 0;
     head->row = row;
     head->col = col;
-    head->next = memset(malloc(sizeof(struct Token)), 0, sizeof(struct Token));
+    head->next = calloc(sizeof(struct Token), 1);
     head->type = token;
     return strlen(token_values[token]);
 }
@@ -99,7 +99,7 @@ void print_token_list(struct Token* token) {
 }
 
 struct Token* BS_Lex(const char* script) {
-    struct Token* list = memset(malloc(sizeof(struct Token)), 0, sizeof(struct Token));
+    struct Token* list = calloc(sizeof(struct Token), 1);
     struct Token* head = list;
     int ptr = 0;
     char c;
@@ -116,7 +116,7 @@ struct Token* BS_Lex(const char* script) {
             ptr++;
             continue;
         }
-        if (c < 32 || c > 126) {
+        if ((c < 32 || c > 126) && c != '\n' && c != '\t') {
             ptr++;
             BS_AppendError(BS_Error_InvalidCharacter, row, col);
             continue;
@@ -230,7 +230,6 @@ struct Token* BS_Lex(const char* script) {
             head = append_token(head, Token_StringLiteral, (union TokenValue){ .string = literal }, row, col);
             col += ptr - prev_ptr;
         }
-        else BS_AppendError(BS_Error_InvalidCharacter, row, col);
         ptr++;
     }
     print_token_list(list);

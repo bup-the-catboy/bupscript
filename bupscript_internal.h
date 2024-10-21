@@ -3,6 +3,12 @@
 
 #include "bupscript.h"
 
+#include <stddef.h>
+
+#ifndef UNUSED
+#define UNUSED __attribute__((unused))
+#endif
+
 #define TOKEN(x) ,x
 #define VALUE(x)
 
@@ -14,7 +20,7 @@ enum TokenType {
 #undef  TOKEN
 #define TOKEN(x) ,#x
 
-static const char* token_names[] = {
+UNUSED static const char* token_names[] = {
     "Token_None"
 #include "tokens.h"
 };
@@ -22,9 +28,9 @@ static const char* token_names[] = {
 #undef  TOKEN
 #undef  VALUE
 #define TOKEN(x) ,""
-#define VALUE(x) #x
+#define VALUE(x) x
 
-static const char* token_values[] = {
+UNUSED static const char* token_values[] = {
     ""
 #include "tokens.h"
 };
@@ -68,10 +74,16 @@ struct Variable {
     union VariableValue value;
 };
 
-struct _BS_Context {
+struct Variables {
     char* varname;
-    struct Variable var;
-    struct _BS_Context* next;
+    BS_VarType vartype;
+    uintptr_t address;
+    struct Variables* next;
+};
+
+struct _BS_Context {
+    struct Variables* variables;
+    unsigned char* memory;
 };
 
 struct Token* BS_Lex(const char* script);

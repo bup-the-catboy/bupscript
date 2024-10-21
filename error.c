@@ -17,10 +17,10 @@ struct Error {
 struct Error* errors;
 
 void BS_AppendError(int code, int row, int col) {
-    if (!errors) errors = memset(malloc(sizeof(struct Error)), 0, sizeof(struct Error));
+    if (!errors) errors = calloc(sizeof(struct Error), 1);
     struct Error* curr = errors;
     while (curr->next) curr = curr->next;
-    curr->next = memset(malloc(sizeof(struct Error)), 0, sizeof(struct Error));
+    curr->next = calloc(sizeof(struct Error), 1);
     curr->code = code;
     curr->row  = row;
     curr->col  = col;

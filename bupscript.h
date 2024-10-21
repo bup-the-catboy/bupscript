@@ -20,9 +20,8 @@ typedef uint8_t BS_VarType;
 #define BS_f32     0x9
 #define BS_f64     0xA
 #define BS_bool    0xB
-#define BS_string  0xC
-#define BS_func    0xD
-#define BS_cfunc   0xE
+#define BS_func    0xC
+#define BS_cfunc   0xD
 #define BS_ptr(x) ((((((x) >> 4) & 0xF) + 1) << 4) | (x & 0xF))
 #define BS_value(x) (void*)(x)
 #define BS_notype  0xFF
