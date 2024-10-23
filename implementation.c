@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-#define BS_FUNC_IMPL(name) struct Variable name(BS_Context* context, struct Variable* params, int num_params) { printf(#name); return (struct Variable){}; }
+#define BS_FUNC_IMPL(name) struct Variable name(BS_Context* context, struct Variable* params, int num_params) { printf("called " #name "\n"); return (struct Variable){}; }
 
 BS_FUNC_IMPL(bseval_create_variable);
 BS_FUNC_IMPL(bseval_create_and_assign_variable);
@@ -29,6 +29,7 @@ BS_FUNC_IMPL(bseval_struct_entry);
 BS_FUNC_IMPL(bseval_codeblock);
 BS_FUNC_IMPL(bseval_number);
 BS_FUNC_IMPL(bseval_string_literal);
+BS_FUNC_IMPL(bseval_identifier);
 BS_FUNC_IMPL(bseval_modifier);
 BS_FUNC_IMPL(bseval_operation);
 BS_FUNC_IMPL(bseval_vararg_get);

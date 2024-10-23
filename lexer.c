@@ -7,7 +7,6 @@
 
 struct Token* append_token(struct Token* head, enum TokenType type, union TokenValue value, int row, int col) {
     struct Token* next = calloc(sizeof(struct Token), 1);
-    next->prev  = head;
     head->next  = next;
     head->type  = type;
     head->value = value;
@@ -24,12 +23,8 @@ struct Token* append_alphanumeric_token(struct Token* head, char* data, int row,
     else if (data[0] == '0' && data[1] == 'o') { base =  8; offset = 2; }
     else if (data[0] == '0')                   { base =  8; offset = 1; }
     char* endptr;
-    int64_t integer = strtoll(data + offset, &endptr, base);
-    if (*endptr == 0) {
-        free(data);
-        return append_token(head, Token_IntegerLiteral, (union TokenValue){ .integer = integer }, row, col);
-    }
-    double number = strtod(data, &endptr);
+    double number = strtoll(data + offset, &endptr, base);
+    if (*endptr != 0) number = strtod(data, &endptr);
     if (*endptr == 0) {
         free(data);
         return append_token(head, Token_NumberLiteral, (union TokenValue){ .number = number }, row, col);
@@ -85,6 +80,26 @@ int get_identifier_length(const char* script) {
     return len;
 }
 
+struct Token* token_array(struct Token* tokens) {
+    int num_tokens = 0;
+    struct Token* curr = tokens;
+    while (curr) {
+        num_tokens++;
+        curr = curr->next;
+    }
+    struct Token* arr = calloc(sizeof(struct Token), num_tokens);
+    curr = tokens;
+    for (int i = 0; i < num_tokens; i++) {
+        struct Token* next = curr->next;
+        memcpy(&arr[i], curr, sizeof(struct Token));
+        arr[i].next = NULL;
+        if (i > 0) arr[i - 1].next = arr + i;
+        free(curr);
+        curr = next;
+    }
+    return arr;
+}
+
 void print_token_list(struct Token* token) {
     struct Token* curr = token;
     while (curr->next) {
@@ -92,7 +107,6 @@ void print_token_list(struct Token* token) {
         else if (curr->type == Token_StringLiteral) printf("(%2d:%2d %-28s) \"%s\"\n", curr->row, curr->col, token_names[curr->type], curr->value.string);
         else if (curr->type == Token_CharacterLiteral) printf("(%2d:%2d %-28s) '%c'", curr->row, curr->col, token_names[curr->type], (char)curr->value.integer);
         else if (curr->type == Token_NumberLiteral) printf("(%2d:%2d %-28s) %g\n", curr->row, curr->col, token_names[curr->type], curr->value.number);
-        else if (curr->type == Token_IntegerLiteral) printf("(%2d:%2d %-28s) %ld\n", curr->row, curr->col, token_names[curr->type], curr->value.integer);
         else printf("(%2d:%2d %-28s) %s\n", curr->row, curr->col, token_names[curr->type], token_values[curr->type]);
         curr = curr->next;
     }
@@ -232,6 +246,7 @@ struct Token* BS_Lex(const char* script) {
         }
         ptr++;
     }
+    list = token_array(list);
     print_token_list(list);
     return list;
 }

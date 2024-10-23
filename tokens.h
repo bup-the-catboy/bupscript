@@ -1,4 +1,3 @@
-TOKEN(Token_IntegerLiteral)
 TOKEN(Token_NumberLiteral)
 TOKEN(Token_StringLiteral)
 TOKEN(Token_CharacterLiteral)

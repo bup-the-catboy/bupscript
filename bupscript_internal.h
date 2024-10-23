@@ -50,7 +50,6 @@ struct Token {
     int row;
     int col;
     struct Token* next;
-    struct Token* prev;
 };
 
 union VariableValue {

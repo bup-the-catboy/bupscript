@@ -123,9 +123,8 @@ const uintptr_t ruleset[][24] = {
     0, (uintptr_t)bseval_incorrect_syntax }
 };
 
-bool get_type(struct Token** tokens, BS_VarType* vartype) {
-    struct Token* t = *tokens;
-    switch (t->type) {
+bool get_type(struct Token* tokens, int* tokenptr, BS_VarType* vartype) {
+    switch (tokens[*tokenptr].type) {
         case Token_VarType_s8:   *vartype = BS_s8;   break;
         case Token_VarType_s16:  *vartype = BS_s16;  break;
         case Token_VarType_s32:  *vartype = BS_s32;  break;
@@ -141,19 +140,13 @@ bool get_type(struct Token** tokens, BS_VarType* vartype) {
         case Token_VarType_void: *vartype = BS_void; break;
         default: return false;
     }
-    while ((++t)->type == Token_Symbol_Multiply) *vartype = BS_ptr(*vartype);
-    *tokens = t;
+    while (tokens[++(*tokenptr)].type == Token_Symbol_Multiply) *vartype = BS_ptr(*vartype);
     return true;
 }
 
 #define push(type, val) parameters[num_parameters++].value.type = val
 #define pushvar(val) parameters[num_parameters++] = val
 #define token cfunc
-#define curr_token ({      \
-    inner_t = t + tokenptr; \
-    &inner_t;                \
-})
-#define update_tokenptr() tokenptr = ((uintptr_t)inner_t - (uintptr_t)t) / sizeof(struct Token)
 #define arrsize(arr) (sizeof(arr) / sizeof(*(arr)))
 #define get_token_index(tkn, arr) _get_token_index(tkn, arr, arrsize(arr))
 
@@ -167,20 +160,19 @@ int _get_token_index(enum TokenType type, enum TokenType* arr, int num) {
 
 #define bracket_err() {                                          \
     BS_AppendError(BS_Error_InvalidBracketStack, t->row, t->col); \
-    return NULL;                                                   \
+    return 0;                                                      \
 }
 
 #define validate_bracket_close(symbol)                                     \
     if (paren_stack_ptr == 0 || paren_stack[--paren_stack_ptr] != symbol) { \
         BS_AppendError(BS_Error_InvalidBracketStack, t->row, t->col);        \
-        return NULL;                                                          \
+        return 0;                                                             \
     }                                                                          \
 
-
-struct Token* fetch_tokens(struct Token** tokens, enum BS_EndState end_state) {
-    struct Token* t = *tokens;
+int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
+    struct Token* t = tokens;
     struct Token* prev_t = NULL;
-    if (!t) return NULL;
+    if (!t) return 0;
     char paren_stack[1024];
     int paren_stack_ptr = 0;
     int orig_paren_stack_ptr = 0;
@@ -190,7 +182,7 @@ struct Token* fetch_tokens(struct Token** tokens, enum BS_EndState end_state) {
     while (do_loop) {
         if (!t) {
             BS_AppendError(BS_Error_UnexpectedEOE, prev_t->row, prev_t->col);
-            return NULL;
+            return 0;
         }
         if (can_end && paren_stack_ptr == 0) {
             if ((
@@ -238,15 +230,15 @@ struct Token* fetch_tokens(struct Token** tokens, enum BS_EndState end_state) {
                 can_end = false;
                 break;
             case Token_Symbol_ParenClose:
-                validate_bracket_close(')')
+                validate_bracket_close('(')
                 if (end_state == BS_EndState_Paren && paren_stack_ptr == 0) do_loop = false;
                 break;
             case Token_Symbol_SquareBraceClose:
-                validate_bracket_close(']')
+                validate_bracket_close('[')
                 if (end_state == BS_EndState_Bracket && paren_stack_ptr == 0) do_loop = false;
                 break;
             case Token_Symbol_CurlyBraceClose:
-                validate_bracket_close('}')
+                validate_bracket_close('{')
                 if (orig_paren_stack_ptr == paren_stack_ptr) can_end = true;
                 if (end_state == BS_EndState_Brace && paren_stack_ptr == 0) do_loop = false;
                 break;
@@ -254,12 +246,13 @@ struct Token* fetch_tokens(struct Token** tokens, enum BS_EndState end_state) {
                 if (can_end) {
                     if (paren_stack_ptr != 0) bracket_err()
                     else if (end_state == BS_EndState_Semicolon) {
-                        do_loop = true;
+                        do_loop = false;
                         break;
                     }
+                    BS_AppendError(BS_Error_UnexpectedSemicolon, t->row, t->col);
+                    return 0;
                 }
-                BS_AppendError(BS_Error_UnexpectedSemicolon, t->row, t->col);
-                return NULL;
+                break;
             case Token_Symbol_RangeArrow:
                 if (paren_stack_ptr == 0 && end_state == BS_EndState_Arrow) break;
                 break;
@@ -272,36 +265,23 @@ struct Token* fetch_tokens(struct Token** tokens, enum BS_EndState end_state) {
         t = t->next;
         size++;
     }
-    t = *tokens;
-    struct Token* fetched = calloc(sizeof(struct Token), size);
-    for (int i = 0; i < size; i++) {
-        memcpy(fetched + i, t, sizeof(struct Token));
-        fetched[i].next = NULL;
-        fetched[i].prev = NULL;
-        if (i > 0) {
-            fetched[i - 1].next = fetched + i;
-            fetched[i].prev = fetched + i - 1;
-        }
-        t = t->next;
-    }
-    *tokens = t;
-    return fetched;
+    return size - 1;
 }
 
-bool evaluate(struct Token** tokens, BS_Context* context, struct Variable* out, enum BS_EndState end_state) {
-    struct Token* t = fetch_tokens(tokens, BS_EndState_Semicolon);
+bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct Variable* out, enum BS_EndState end_state) {
+    int num_tokens = fetch_tokens(tokens + *tokenptr, end_state);
+    if (num_tokens == 0) return false;
+    int max_tokenptr = *tokenptr + num_tokens;
     struct Token* inner_t;
-    if (!t) return false;
     int cmd = 0;
     int ptr = 0;
-    int tokenptr = 0;
     struct Variable parameters[256];
     int num_parameters = 0;
     while (true) {
         bool failed = false;
         switch (ruleset[cmd][ptr++]) {
             case 0: { // RUN
-                if (t[tokenptr].next) {
+                if (*tokenptr != max_tokenptr) {
                     failed = true;
                     break;
                 }
@@ -309,18 +289,22 @@ bool evaluate(struct Token** tokens, BS_Context* context, struct Variable* out, 
                 return true;
             } break;
             case 1: { // SPECIFIC
-                if (ruleset[cmd][ptr++] != t[tokenptr++].type) failed = true;
+                if (ruleset[cmd][ptr++] != tokens[(*tokenptr)++].type) failed = true;
             } break;
             case 2: { // TYPE
                 BS_VarType vartype;
-                if (get_type(curr_token, &vartype)) push(u8, vartype);
+                if (get_type(tokens, tokenptr, &vartype)) push(u8, vartype);
                 else failed = true;
-                update_tokenptr();
+            } break;
+            case 3: { // IDENT
+                if (Token_Identifier != tokens[*tokenptr].type) failed = true;
+                else push(string, tokens[*tokenptr].value.string);
+                (*tokenptr)++;
             } break;
             case 4: { // EXPR
                 enum BS_EndState next_end_state = end_state;
-                if (ruleset[cmd][ptr + 1] == 1) { // SPECIFIC
-                    switch (ruleset[cmd][ptr + 2]) {
+                if (ruleset[cmd][ptr] == 1) { // SPECIFIC
+                    switch (ruleset[cmd][ptr + 1]) {
                         case Token_Symbol_ParenOpen: next_end_state = BS_EndState_Paren; break;
                         case Token_Symbol_SquareBraceOpen: next_end_state = BS_EndState_Bracket; break;
                         case Token_Symbol_CurlyBraceOpen: next_end_state = BS_EndState_Brace; break;
@@ -328,67 +312,72 @@ bool evaluate(struct Token** tokens, BS_Context* context, struct Variable* out, 
                         case Token_Symbol_ReverseArrow: next_end_state = BS_EndState_ReverseArrow; break;
                     }
                 }
-                if (ruleset[cmd][ptr + 1] == 7) { // CODEBLOCK
+                if (ruleset[cmd][ptr] == 7) { // CODEBLOCK
                     next_end_state = BS_EndState_CodeBlock;
                 }
-                if (ruleset[cmd][ptr + 1] == 9) { // OPERATOR
+                if (ruleset[cmd][ptr] == 9) { // OPERATOR
                     next_end_state = BS_EndState_Operator;
                 }
                 struct Variable retval;
-                bool is_empty = !evaluate(curr_token, context, &retval, next_end_state);
-                update_tokenptr();
+                bool is_empty = !evaluate(tokens, tokenptr, context, &retval, next_end_state);
                 if (BS_HasError() || is_empty) return false;
                 pushvar(retval);
             } break;
             case 5: { // EXPRLIST
-                if (t[tokenptr].type == Token_Symbol_ParenClose) break;
+                if (tokens[*tokenptr].type == Token_Symbol_ParenClose) break;
                 while (true) {
                     struct Variable retval;
-                    bool is_empty = !evaluate(curr_token, context, &retval, BS_EndState_List);
-                    update_tokenptr();
+                    bool is_empty = !evaluate(tokens, tokenptr, context, &retval, BS_EndState_List);
                     if (BS_HasError() || is_empty) return false;
                     pushvar(retval);
-                    if (t[tokenptr - 1].type == Token_Symbol_ParenClose) break;
+                    if (tokens[(*tokenptr) - 1].type == Token_Symbol_ParenClose) break;
                 }
             } break;
             case 6: { // ARGLIST
             } break;
             case 7: { // CODEBLOCK
                 struct Token* token_list;
-                enum TokenType type = t[tokenptr++].type;
-                if (type == Token_Symbol_Arrow) token_list = fetch_tokens(curr_token, BS_EndState_Semicolon);
-                else if (type == Token_Symbol_CurlyBraceOpen) token_list = fetch_tokens(curr_token, BS_EndState_Brace);
+                enum TokenType type = tokens[(*tokenptr)++].type;
+                int num_tokens = 0;
+                if (type == Token_Symbol_Arrow) num_tokens = fetch_tokens(tokens + *tokenptr, BS_EndState_Semicolon);
+                else if (type == Token_Symbol_CurlyBraceOpen) num_tokens = fetch_tokens(tokens + *tokenptr, BS_EndState_Brace);
                 else {
                     failed = true;
                     break;
                 }
-                update_tokenptr();
+                *tokenptr += num_tokens;
                 push(token, token_list);
             } break;
             case 8: { // MODIFIER
-                int index = get_token_index(t[tokenptr++].type, modification_tokens);
+                int index = get_token_index(tokens[(*tokenptr)++].type, modification_tokens);
                 if (index == arrsize(modification_tokens)) failed = true;
                 else push(s32, index);
             } break;
             case 9: { // OPERATOR
-                int index = get_token_index(t[tokenptr++].type, operation_tokens);
+                int index = get_token_index(tokens[(*tokenptr)++].type, operation_tokens);
                 if (index == arrsize(operation_tokens)) failed = true;
                 else push(s32, index);
             } break;
         }
         if (failed) {
             cmd++;
-            ptr = tokenptr = num_parameters = 0;
+            ptr = num_parameters = 0;
+            *tokenptr = max_tokenptr - num_tokens;
         }
-        else ptr++;
     }
 }
 
 struct Variable BS_Execute(struct Token* tokens, BS_Context* context) {
     struct Variable retval = (struct Variable){};
+    int tokenptr = 0;
     while (1) {
-        printf("executing at offset (%d;%d)\n", tokens->row, tokens->col);
-        if (!evaluate(&tokens, context, &retval, BS_EndState_Semicolon)) break;
+        if (!tokens[tokenptr].next) {
+            printf("end of script\n");
+            break;
+        }
+        printf("next expression (%d:%d)\n", tokens[tokenptr].row, tokens[tokenptr].col);
+        if (!evaluate(tokens, &tokenptr, context, &retval, BS_EndState_Semicolon)) break;
+        tokenptr++;
     }
     return retval;
 }

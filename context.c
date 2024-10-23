@@ -24,13 +24,7 @@ BS_Context* BS_CreateContext() {
 void BS_Eval(BS_Context* context, const char* script) {
     struct Token* tokens = BS_Lex(script);
     BS_Execute(tokens, context);
-
-    struct Token* curr = tokens;
-    while (curr) {
-        struct Token* next = curr->next;
-        free(curr);
-        curr = next;
-    }
+    free(tokens);
 }
 
 void BS_Call(BS_Context* context, const char* name, const char* params, ...) {
