@@ -14,8 +14,7 @@
 #define SWAP SPECIFIC(Token_Symbol_Swap)
 #define ARRLEN SPECIFIC(Token_Symbol_ArrayIndexerLength)
 #define VARARGS SPECIFIC(Token_Symbol_Vararg)
-#define RANGE_ARROW SPECIFIC(Token_Symbol_RangeArrow)
-#define REVERSE_ARROW SPECIFIC(Token_Symbol_ReverseArrow)
+#define RANGE SPECIFIC(Token_Symbol_Range)
 #define PARENOPEN SPECIFIC(Token_Symbol_ParenOpen)
 #define PARENCLOSE SPECIFIC(Token_Symbol_ParenClose)
 #define BRACKETOPEN SPECIFIC(Token_Symbol_SquareBraceOpen)
@@ -105,8 +104,7 @@ enum BS_Modifications {
 
 enum BS_EndState {
     BS_EndState_Semicolon,
-    BS_EndState_Arrow,
-    BS_EndState_ReverseArrow,
+    BS_EndState_Range,
     BS_EndState_Paren,
     BS_EndState_Bracket,
     BS_EndState_Brace,
@@ -215,6 +213,10 @@ int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
                     t->type == Token_Symbol_GreaterThan ||
                     t->type == Token_Symbol_GreaterEqualTo
                 )
+            ) || (
+                end_state == BS_EndState_Range && (
+                    t->type == Token_Symbol_Range
+                )
             )) do_loop = false;
         }
         if (do_loop) switch (t->type) {
@@ -230,17 +232,19 @@ int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
                 can_end = false;
                 break;
             case Token_Symbol_ParenClose:
-                validate_bracket_close('(')
                 if (end_state == BS_EndState_Paren && paren_stack_ptr == 0) do_loop = false;
+                else validate_bracket_close('(')
                 break;
             case Token_Symbol_SquareBraceClose:
-                validate_bracket_close('[')
                 if (end_state == BS_EndState_Bracket && paren_stack_ptr == 0) do_loop = false;
+                else validate_bracket_close('[')
                 break;
             case Token_Symbol_CurlyBraceClose:
-                validate_bracket_close('{')
-                if (orig_paren_stack_ptr == paren_stack_ptr) can_end = true;
                 if (end_state == BS_EndState_Brace && paren_stack_ptr == 0) do_loop = false;
+                else {
+                    validate_bracket_close('{')
+                    if (orig_paren_stack_ptr == paren_stack_ptr) can_end = true;   
+                }
                 break;
             case Token_Symbol_Semicolon:
                 if (can_end) {
@@ -252,12 +256,6 @@ int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
                     BS_AppendError(BS_Error_UnexpectedSemicolon, t->row, t->col);
                     return 0;
                 }
-                break;
-            case Token_Symbol_RangeArrow:
-                if (paren_stack_ptr == 0 && end_state == BS_EndState_Arrow) break;
-                break;
-            case Token_Symbol_ReverseArrow:
-                if (paren_stack_ptr == 0 && end_state == BS_EndState_ReverseArrow) break;
                 break;
             default: break;
         }
@@ -305,11 +303,10 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
                 enum BS_EndState next_end_state = end_state;
                 if (ruleset[cmd][ptr] == 1) { // SPECIFIC
                     switch (ruleset[cmd][ptr + 1]) {
-                        case Token_Symbol_ParenOpen: next_end_state = BS_EndState_Paren; break;
-                        case Token_Symbol_SquareBraceOpen: next_end_state = BS_EndState_Bracket; break;
-                        case Token_Symbol_CurlyBraceOpen: next_end_state = BS_EndState_Brace; break;
-                        case Token_Symbol_RangeArrow: next_end_state = BS_EndState_Arrow; break;
-                        case Token_Symbol_ReverseArrow: next_end_state = BS_EndState_ReverseArrow; break;
+                        case Token_Symbol_ParenClose: next_end_state = BS_EndState_Paren; break;
+                        case Token_Symbol_SquareBraceClose: next_end_state = BS_EndState_Bracket; break;
+                        case Token_Symbol_CurlyBraceClose: next_end_state = BS_EndState_Brace; break;
+                        case Token_Symbol_Range: next_end_state = BS_EndState_Range; break;
                     }
                 }
                 if (ruleset[cmd][ptr] == 7) { // CODEBLOCK

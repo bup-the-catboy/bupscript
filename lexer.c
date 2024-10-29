@@ -155,7 +155,7 @@ struct Token* BS_Lex(const char* script) {
             identifier[p] = 0;
             head = append_alphanumeric_token(head, identifier, row, col);
             ptr += p - 1;
-            col += p;
+            col += p - 1;
         }
         else if (c == '"') {
             int length = 0;
