@@ -74,8 +74,10 @@ struct Variable {
 };
 
 struct Variables {
-    char* varname;
     BS_VarType vartype;
+    bool lendable;
+    int owner, curr_owner;
+    char* varname;
     uintptr_t address;
     struct Variables* next;
 };

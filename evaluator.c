@@ -27,12 +27,17 @@
 #define RETURN SPECIFIC(Token_Keyword_return)
 #define RETURNS SPECIFIC(Token_Keyword_returns)
 #define IF SPECIFIC(Token_Keyword_if)
+#define ELIF SPECIFIC(Token_Keyword_elif)
 #define ELSE SPECIFIC(Token_Keyword_else)
 #define WHILE SPECIFIC(Token_Keyword_while)
 #define FOR SPECIFIC(Token_Keyword_for)
 #define IN SPECIFIC(Token_Keyword_in)
 #define CONTINUE SPECIFIC(Token_Keyword_continue)
 #define BREAK SPECIFIC(Token_Keyword_break)
+#define LEND SPECIFIC(Token_Keyword_lend)
+#define BORROW SPECIFIC(Token_Keyword_borrow)
+#define FROM SPECIFIC(Token_Keyword_from)
+#define CALLED SPECIFIC(Token_Keyword_called)
 #define TYPE 2,
 #define IDENT 3,
 #define EXPR 4,
@@ -240,7 +245,7 @@ int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
                 else validate_bracket_close('[')
                 break;
             case Token_Symbol_CurlyBraceClose:
-                if (end_state == BS_EndState_Brace && paren_stack_ptr == 0) do_loop = false;
+                if (end_state == BS_EndState_Brace && paren_stack_ptr == 1 && !can_end) do_loop = false;
                 else {
                     validate_bracket_close('{')
                     if (orig_paren_stack_ptr == paren_stack_ptr) can_end = true;   
@@ -279,7 +284,7 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
         bool failed = false;
         switch (ruleset[cmd][ptr++]) {
             case 0: { // RUN
-                if (*tokenptr != max_tokenptr) {
+                if (*tokenptr != max_tokenptr && ptr != 1) {
                     failed = true;
                     break;
                 }
@@ -321,7 +326,10 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
                 pushvar(retval);
             } break;
             case 5: { // EXPRLIST
-                if (tokens[*tokenptr].type == Token_Symbol_ParenClose) break;
+                if (tokens[*tokenptr].type == Token_Symbol_ParenClose) {
+                    (*tokenptr)++;
+                    break;
+                }
                 while (true) {
                     struct Variable retval;
                     bool is_empty = !evaluate(tokens, tokenptr, context, &retval, BS_EndState_List);
@@ -331,10 +339,35 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
                 }
             } break;
             case 6: { // ARGLIST
+                if (tokens[*tokenptr].type == Token_Symbol_ParenClose) {
+                    (*tokenptr)++;
+                    break;
+                }
+                while (true) {
+                    BS_VarType vartype;
+                    if (get_type(tokens, tokenptr, &vartype)) push(u8, vartype);
+                    else {
+                        failed = true;
+                        break;
+                    }
+
+                    if (tokens[*tokenptr].type == Token_Identifier) push(string, tokens[*tokenptr].value.string);
+                    else {
+                        failed = true;
+                        break;
+                    }
+                    (*tokenptr) += 2;
+
+                    if (tokens[*tokenptr - 1].type == Token_Symbol_ParenClose) break;
+                    else if (tokens[*tokenptr - 1].type == Token_Symbol_Comma) continue;
+
+                    failed = true;
+                    break;
+                }
             } break;
             case 7: { // CODEBLOCK
                 struct Token* token_list;
-                enum TokenType type = tokens[(*tokenptr)++].type;
+                enum TokenType type = tokens[*tokenptr].type;
                 int num_tokens = 0;
                 if (type == Token_Symbol_Arrow) num_tokens = fetch_tokens(tokens + *tokenptr, BS_EndState_Semicolon);
                 else if (type == Token_Symbol_CurlyBraceOpen) num_tokens = fetch_tokens(tokens + *tokenptr, BS_EndState_Brace);
@@ -342,7 +375,7 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
                     failed = true;
                     break;
                 }
-                *tokenptr += num_tokens;
+                *tokenptr += num_tokens + 1;
                 push(token, token_list);
             } break;
             case 8: { // MODIFIER
