@@ -103,11 +103,11 @@ struct Token* token_array(struct Token* tokens) {
 void print_token_list(struct Token* token) {
     struct Token* curr = token;
     while (curr->next) {
-        if (curr->type == Token_Identifier) printf("(%2d:%2d %-28s) %s\n", curr->row, curr->col, token_names[curr->type], curr->value.string);
-        else if (curr->type == Token_StringLiteral) printf("(%2d:%2d %-28s) \"%s\"\n", curr->row, curr->col, token_names[curr->type], curr->value.string);
-        else if (curr->type == Token_CharacterLiteral) printf("(%2d:%2d %-28s) '%c'", curr->row, curr->col, token_names[curr->type], (char)curr->value.integer);
-        else if (curr->type == Token_NumberLiteral) printf("(%2d:%2d %-28s) %g\n", curr->row, curr->col, token_names[curr->type], curr->value.number);
-        else printf("(%2d:%2d %-28s) %s\n", curr->row, curr->col, token_names[curr->type], token_values[curr->type]);
+        if (curr->type == Token_Identifier) printf("(%2d:%-2d %-28s) %s\n", curr->row, curr->col, token_names[curr->type], curr->value.string);
+        else if (curr->type == Token_StringLiteral) printf("(%2d:%-2d %-28s) \"%s\"\n", curr->row, curr->col, token_names[curr->type], curr->value.string);
+        else if (curr->type == Token_CharacterLiteral) printf("(%2d:%-2d %-28s) '%c'", curr->row, curr->col, token_names[curr->type], (char)curr->value.integer);
+        else if (curr->type == Token_NumberLiteral) printf("(%2d:%-2d %-28s) %g\n", curr->row, curr->col, token_names[curr->type], curr->value.number);
+        else printf("(%2d:%-2d %-28s) %s\n", curr->row, curr->col, token_names[curr->type], token_values[curr->type]);
         curr = curr->next;
     }
 }

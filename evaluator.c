@@ -175,7 +175,7 @@ int _get_token_index(enum TokenType type, enum TokenType* arr, int num) {
 int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
     struct Token* t = tokens;
     struct Token* prev_t = NULL;
-    if (!t) return 0;
+    if (!t) return -1;
     char paren_stack[1024];
     int paren_stack_ptr = 0;
     int orig_paren_stack_ptr = 0;
@@ -185,7 +185,7 @@ int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
     while (do_loop) {
         if (!t) {
             BS_AppendError(BS_Error_UnexpectedEOE, prev_t->row, prev_t->col);
-            return 0;
+            return -1;
         }
         if (can_end && paren_stack_ptr == 0) {
             if ((
@@ -245,7 +245,7 @@ int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
                 else validate_bracket_close('[')
                 break;
             case Token_Symbol_CurlyBraceClose:
-                if (end_state == BS_EndState_Brace && paren_stack_ptr == 1 && !can_end) do_loop = false;
+                if ((end_state == BS_EndState_Brace || end_state == BS_EndState_Semicolon) && paren_stack_ptr == 1 && !can_end) do_loop = false;
                 else {
                     validate_bracket_close('{')
                     if (orig_paren_stack_ptr == paren_stack_ptr) can_end = true;   
@@ -259,7 +259,7 @@ int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
                         break;
                     }
                     BS_AppendError(BS_Error_UnexpectedSemicolon, t->row, t->col);
-                    return 0;
+                    return -1;
                 }
                 break;
             default: break;
@@ -273,7 +273,8 @@ int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
 
 bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct Variable* out, enum BS_EndState end_state) {
     int num_tokens = fetch_tokens(tokens + *tokenptr, end_state);
-    if (num_tokens == 0) return false;
+    if (num_tokens == -1) return false;
+    if (num_tokens ==  0) return true;
     int max_tokenptr = *tokenptr + num_tokens;
     struct Token* inner_t;
     int cmd = 0;
@@ -375,7 +376,7 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
                     failed = true;
                     break;
                 }
-                *tokenptr += num_tokens + 1;
+                *tokenptr += num_tokens;
                 push(token, token_list);
             } break;
             case 8: { // MODIFIER
