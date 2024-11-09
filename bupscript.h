@@ -24,10 +24,8 @@ typedef uint8_t BS_VarType;
 #define BS_func    0xC
 #define BS_cfunc   0xD
 #define BS_ptr(x) ((((((x) >> 4) & 0xF) + 1) << 4) | (x & 0xF))
-#define BS_notype  0xFF
 
-#define BS_sizeof(x) (                                           \
-    x == BS_notype ? 0 :                                          \
+#define BS_sizeof(x) (                                            \
    (x & 0xF0) || x == BS_func || x == BS_cfunc ? sizeof(void*)   : \
     x == BS_bool                               ? sizeof(bool)    :  \
     x == BS_s8  || x == BS_u8                  ? sizeof(int8_t)  :   \

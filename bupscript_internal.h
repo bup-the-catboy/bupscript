@@ -70,9 +70,22 @@ struct _BS_Context {
     size_t memsize, memused;
 };
 
-struct Token* BS_Lex(const char* script);
-BS_Variable BS_Execute(struct Token* tokens, BS_Context* context);
+enum BS_EndState {
+    BS_EndState_Semicolon,
+    BS_EndState_Range,
+    BS_EndState_Paren,
+    BS_EndState_Bracket,
+    BS_EndState_Brace,
+    BS_EndState_List,
+    BS_EndState_CodeBlock,
+    BS_EndState_Operator,
+};
 
+struct Token* BS_Lex(const char* script);
+int BS_FetchTokens(struct Token* tokens, enum BS_EndState end_state);
+bool BS_Evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, BS_Variable* out, enum BS_EndState end_state);
+BS_Variable BS_Execute(struct Token* tokens, BS_Context* context);
+struct Variables* BS_GetVariableInternal(struct _BS_Context* context, const char* name);
 struct Variables* BS_AddNewVariable(struct _BS_Context* context, const char* varname, BS_Variable var);
 
 #endif

@@ -74,7 +74,7 @@ type __BS_Cast_##type(BS_Variable var) {          \
         case BS_bool:  return (type)var.value.boolean;        \
         case BS_func:  return (type)(uintptr_t)var.value.func; \
         case BS_cfunc: return (type)(uintptr_t)var.value.func;  \
-        case BS_void: case BS_notype: return (type)0;            \
+        case BS_void:  return (type)0;                           \
         default: return (type)(uintptr_t)var.value.ptr;           \
     }                                                              \
     return (type)0;                                                 \
@@ -106,7 +106,7 @@ BS_Variable BS_Cast(BS_Variable variable, BS_VarType target_type) {
         case BS_f32:   variable.value.f32     = __BS_Cast_float   (variable); break;
         case BS_f64:   variable.value.f64     = __BS_Cast_double  (variable); break;
         case BS_bool:  variable.value.boolean = __BS_Cast_bool    (variable); break;
-        case BS_void: case BS_notype: variable.value.func = NULL; break;
+        case BS_void:  variable.value.func    =   NULL;                           break;
         default: variable.value.func = (void*)__BS_Cast_uintptr_t(variable);
     }
     variable.vartype = target_type;
@@ -149,8 +149,10 @@ void BS_AddVariable(BS_Context* context, const char* name, BS_VarType type, void
 }
 
 void BS_PrintVariable(FILE* stream, BS_Variable variable) {
-    if (variable.vartype == BS_notype) fputs("none", stream);
-    if (variable.vartype == BS_void)   fputs("void", stream);
+    if (variable.vartype == BS_void) {
+        fputs("void", stream);
+        return;
+    }
     int num_ptrs = (variable.vartype >> 4) >> 0xF;
     int type = variable.vartype & 0xF;
     switch (type) {
