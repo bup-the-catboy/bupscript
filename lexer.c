@@ -23,8 +23,12 @@ struct Token* append_alphanumeric_token(struct Token* head, char* data, int row,
     else if (data[0] == '0' && data[1] == 'o') { base =  8; offset = 2; }
     else if (data[0] == '0')                   { base =  8; offset = 1; }
     char* endptr;
-    double number = strtoll(data + offset, &endptr, base);
-    if (*endptr != 0) number = strtod(data, &endptr);
+    int64_t integer = strtoll(data + offset, &endptr, base);
+    if (*endptr == 0) {
+        free(data);
+        return append_token(head, Token_IntegerLiteral, (union TokenValue){ .integer = integer }, row, col);
+    }
+    double number = strtod(data, &endptr);
     if (*endptr == 0) {
         free(data);
         return append_token(head, Token_NumberLiteral, (union TokenValue){ .number = number }, row, col);
@@ -67,7 +71,7 @@ int parse_symbol_token(const char* script, struct Token* head, int row, int col)
 }
 
 bool is_alphanumeric(char c) {
-    return c == '_' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
+    return c == '_' || c == '.' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');
 }
 
 int get_identifier_length(const char* script) {
@@ -107,6 +111,7 @@ void print_token_list(struct Token* token) {
         else if (curr->type == Token_StringLiteral) printf("(%2d:%-2d %-28s) \"%s\"\n", curr->row, curr->col, token_names[curr->type], curr->value.string);
         else if (curr->type == Token_CharacterLiteral) printf("(%2d:%-2d %-28s) '%c'", curr->row, curr->col, token_names[curr->type], (char)curr->value.integer);
         else if (curr->type == Token_NumberLiteral) printf("(%2d:%-2d %-28s) %g\n", curr->row, curr->col, token_names[curr->type], curr->value.number);
+        else if (curr->type == Token_IntegerLiteral) printf("(%2d:%-2d %-28s) %ld\n", curr->row, curr->col, token_names[curr->type], curr->value.integer);
         else printf("(%2d:%-2d %-28s) %s\n", curr->row, curr->col, token_names[curr->type], token_values[curr->type]);
         curr = curr->next;
     }

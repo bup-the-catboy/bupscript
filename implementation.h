@@ -1,6 +1,6 @@
 #include "bupscript_internal.h"
 
-#define BS_FUNC_IMPL(name) struct Variable name(BS_Context* context, struct Variable* params, int num_params)
+#define BS_FUNC_IMPL(name) BS_Variable name(struct _BS_Context* context, BS_Variable* params, int num_params)
 
 BS_FUNC_IMPL(bseval_create_variable);
 BS_FUNC_IMPL(bseval_create_and_assign_variable);
@@ -10,7 +10,6 @@ BS_FUNC_IMPL(bseval_borrow_from);
 BS_FUNC_IMPL(bseval_assign_variable);
 BS_FUNC_IMPL(bseval_swap_variables);
 BS_FUNC_IMPL(bseval_array_indexer);
-BS_FUNC_IMPL(bseval_array_length);
 BS_FUNC_IMPL(bseval_called);
 BS_FUNC_IMPL(bseval_func_call);
 BS_FUNC_IMPL(bseval_function);

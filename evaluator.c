@@ -12,7 +12,6 @@
 #define EQUALS SPECIFIC(Token_Symbol_Assign)
 #define COLON SPECIFIC(Token_Symbol_Colon)
 #define SWAP SPECIFIC(Token_Symbol_Swap)
-#define ARRLEN SPECIFIC(Token_Symbol_ArrayIndexerLength)
 #define VARARGS SPECIFIC(Token_Symbol_Vararg)
 #define RANGE SPECIFIC(Token_Symbol_Range)
 #define PARENOPEN SPECIFIC(Token_Symbol_ParenOpen)
@@ -21,8 +20,6 @@
 #define BRACKETCLOSE SPECIFIC(Token_Symbol_SquareBraceClose)
 #define BRACEOPEN SPECIFIC(Token_Symbol_CurlyBraceOpen)
 #define BRACECLOSE SPECIFIC(Token_Symbol_CurlyBraceClose)
-#define NUMBER SPECIFIC(Token_NumberLiteral)
-#define STRLIT SPECIFIC(Token_StringLiteral)
 #define STRUCT SPECIFIC(Token_Keyword_struct)
 #define RETURN SPECIFIC(Token_Keyword_return)
 #define RETURNS SPECIFIC(Token_Keyword_returns)
@@ -46,8 +43,10 @@
 #define CODEBLOCK 7,
 #define MODIFIER 8,
 #define OPERATOR 9,
+#define NUMBER 10,
+#define STRLIT 11,
 
-typedef struct Variable(*BS_EvaluatorFunc)(BS_Context* context, struct Variable* params, int num_params);
+typedef BS_Variable(*BS_EvaluatorFunc)(struct _BS_Context* context, BS_Variable* params, int num_params);
 
 enum TokenType operation_tokens[] = {
     Token_Symbol_Plus,
@@ -149,7 +148,7 @@ bool get_type(struct Token* tokens, int* tokenptr, BS_VarType* vartype) {
 
 #define push(type, val) parameters[num_parameters++].value.type = val
 #define pushvar(val) parameters[num_parameters++] = val
-#define token cfunc
+#define token func
 #define arrsize(arr) (sizeof(arr) / sizeof(*(arr)))
 #define get_token_index(tkn, arr) _get_token_index(tkn, arr, arrsize(arr))
 
@@ -271,7 +270,7 @@ int fetch_tokens(struct Token* tokens, enum BS_EndState end_state) {
     return size - 1;
 }
 
-bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct Variable* out, enum BS_EndState end_state) {
+bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, BS_Variable* out, enum BS_EndState end_state) {
     int num_tokens = fetch_tokens(tokens + *tokenptr, end_state);
     if (num_tokens == -1) return false;
     if (num_tokens ==  0) return true;
@@ -279,7 +278,7 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
     struct Token* inner_t;
     int cmd = 0;
     int ptr = 0;
-    struct Variable parameters[256];
+    BS_Variable parameters[256];
     int num_parameters = 0;
     while (true) {
         bool failed = false;
@@ -289,7 +288,7 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
                     failed = true;
                     break;
                 }
-                *out = ((BS_EvaluatorFunc)ruleset[cmd][ptr++])(context, parameters, num_parameters);
+                *out = ((BS_EvaluatorFunc)ruleset[cmd][ptr++])((struct _BS_Context*)context, parameters, num_parameters);
                 return true;
             } break;
             case 1: { // SPECIFIC
@@ -321,7 +320,7 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
                 if (ruleset[cmd][ptr] == 9) { // OPERATOR
                     next_end_state = BS_EndState_Operator;
                 }
-                struct Variable retval;
+                BS_Variable retval;
                 bool is_empty = !evaluate(tokens, tokenptr, context, &retval, next_end_state);
                 if (BS_HasError() || is_empty) return false;
                 pushvar(retval);
@@ -332,7 +331,7 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
                     break;
                 }
                 while (true) {
-                    struct Variable retval;
+                    BS_Variable retval;
                     bool is_empty = !evaluate(tokens, tokenptr, context, &retval, BS_EndState_List);
                     if (BS_HasError() || is_empty) return false;
                     pushvar(retval);
@@ -389,6 +388,42 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
                 if (index == arrsize(operation_tokens)) failed = true;
                 else push(s32, index);
             } break;
+            case 10: { // NUMBER
+                BS_Variable variable;
+                variable.vartype = BS_notype;
+                switch (tokens[*tokenptr].type) {
+                    case Token_NumberLiteral: {
+                        variable.vartype = BS_f64;
+                        variable.value.f64 = tokens[*tokenptr].value.number;
+                    } break;
+                    case Token_IntegerLiteral: {
+                        variable.vartype = BS_s64;
+                        variable.value.s64 = tokens[*tokenptr].value.integer;
+                    } break;
+                    case Token_CharacterLiteral: {
+                        variable.vartype = BS_s8;
+                        variable.value.s8 = tokens[*tokenptr].value.integer;
+                    } break;
+                    case Token_Keyword_true: {
+                        variable.vartype = BS_bool;
+                        variable.value.boolean = 1;
+                    } break;
+                    case Token_Keyword_false: {
+                        variable.vartype = BS_bool;
+                        variable.value.boolean = 0;
+                    } break;
+                    default:
+                        failed = true;
+                        break;
+                }
+                if (variable.vartype == BS_notype) break;
+                (*tokenptr)++;
+                pushvar(variable);
+            } break;
+            case 11: { // STRLIT
+                if (tokens[*tokenptr].type != Token_StringLiteral) failed = true;
+                else push(string, tokens[(*tokenptr)++].value.string);
+            } break;
         }
         if (failed) {
             cmd++;
@@ -398,8 +433,8 @@ bool evaluate(struct Token* tokens, int* tokenptr, BS_Context* context, struct V
     }
 }
 
-struct Variable BS_Execute(struct Token* tokens, BS_Context* context) {
-    struct Variable retval = (struct Variable){};
+BS_Variable BS_Execute(struct Token* tokens, BS_Context* context) {
+    BS_Variable retval = (BS_Variable){};
     int tokenptr = 0;
     while (1) {
         if (!tokens[tokenptr].next) {

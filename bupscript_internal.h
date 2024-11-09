@@ -52,44 +52,27 @@ struct Token {
     struct Token* next;
 };
 
-union VariableValue {
-    int8_t s8;
-    int16_t s16;
-    int32_t s32;
-    int64_t s64;
-    uint8_t u8;
-    uint16_t u16;
-    uint32_t u32;
-    uint64_t u64;
-    bool boolean;
-    char* string;
-    struct Token* func;
-    void* cfunc;
-    union VariableValue* ptr;
-};
-
-struct Variable {
-    BS_VarType vartype;
-    union VariableValue value;
-};
-
 struct Variables {
     BS_VarType vartype;
     bool lendable;
-    int owner, curr_owner;
+    int owner, curr_owner, block_owner;
     char* varname;
-    uintptr_t address;
+    BS_VariableValue* address;
     struct Variables* next;
+    struct Variables* prev;
 };
 
 struct _BS_Context {
     struct Variables* variables;
+    struct Variables* variables_head;
     unsigned char* memory;
+    int curr_func, curr_block;
+    size_t memsize, memused;
 };
 
 struct Token* BS_Lex(const char* script);
-struct Variable BS_Execute(struct Token* tokens, BS_Context* context);
+BS_Variable BS_Execute(struct Token* tokens, BS_Context* context);
 
-void BS_AddVariable(struct _BS_Context* context, char* varname, struct Variable var);
+struct Variables* BS_AddNewVariable(struct _BS_Context* context, const char* varname, BS_Variable var);
 
 #endif
