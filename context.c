@@ -30,7 +30,7 @@ BS_Context* BS_CreateContext() {
 BS_Variable BS_Eval(BS_Context* context, const char* script) {
     struct Token* tokens = BS_Lex(script);
     BS_Variable value = BS_Execute(tokens, context);
-    free(tokens);
+    //free(tokens);
     return value;
 }
 
@@ -153,7 +153,7 @@ void BS_PrintVariable(FILE* stream, BS_Variable variable) {
         fputs("void", stream);
         return;
     }
-    int num_ptrs = (variable.vartype >> 4) >> 0xF;
+    int num_ptrs = (variable.vartype >> 4) & 0xF;
     int type = variable.vartype & 0xF;
     switch (type) {
         case BS_s8:    fputs("s8",    stream); PRINT("%d",  s8);  break;

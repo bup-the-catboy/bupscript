@@ -94,6 +94,7 @@ BS_FUNC_IMPL(bseval_number) {
 }
 
 BS_FUNC_IMPL(bseval_string_literal) {
+    params[0].vartype = BS_ptr(BS_s8);
     return params[0];
 }
 
